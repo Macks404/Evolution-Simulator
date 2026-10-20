@@ -13,6 +13,13 @@ public abstract class Entity {
 
     protected abstract void tick(World world);
 
+    // something bites this entity
+    public double takeEnergy(double amount) {
+        double taken = Math.min(amount, energy);
+        energy -= taken;
+        if (energy <= 0) active = false;
+        return taken;
+    }
 
 
     public double getX() {

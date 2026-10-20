@@ -10,7 +10,7 @@ public class Corpse extends Entity {
     }
 
     private double determineStartingEnergy(double creatureEnergy, double creatureHealth) {
-        return creatureHealth;
+        return radius*radius*0.25;
     }
 
     @Override 

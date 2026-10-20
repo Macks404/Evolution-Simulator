@@ -20,6 +20,11 @@ public class Creature extends Entity {
     private Sighting nearestCorpse;
     private final List<Sighting> visibleCreatures = new ArrayList<>();
 
+    // eating
+    private final List<Entity> touchingFood = new ArrayList<>();
+    private boolean touchingPlant = false;
+    private boolean touchingCorpse = false;
+
     // info for brain
     private boolean seesPlant;
     private double plantAngle;
@@ -28,6 +33,10 @@ public class Creature extends Entity {
     private boolean seesCorpse;
     private double corpseAngle;
     private double corpseDistance;
+
+    // brain outputs
+    private double eat = 1;
+    private double reproduce = 1;
 
     public Creature(double x, double y, double heading, Genome genome) {
         this.x = x;
@@ -45,6 +54,8 @@ public class Creature extends Entity {
     @Override 
     protected void tick(World world) {
         look(world);
+        if(eat > 0.5) eat();
+        if(reproduce > 0.5) reproduce(world);
 
         // apply movement
         heading += turn * maxTurnRate;
@@ -59,10 +70,13 @@ public class Creature extends Entity {
     }
 
     private void look(World world) {
-        // reset vision
+        // reset vars
         nearestCorpse = null;
         nearestPlant = null;
         visibleCreatures.clear();
+        touchingFood.clear();
+        touchingPlant = false;
+        touchingCorpse = false;
 
         for(Entity e : world.getEntities()) {
             if(e == this) continue;
@@ -71,6 +85,19 @@ public class Creature extends Entity {
             double dx = e.getX() - x;
             double dy = e.getY() - y;
             double dist = Math.sqrt(dx*dx + dy*dy);
+
+            // get foods touching (corpse / plant)
+            if(dist < radius + e.getRadius()) {
+                if(e instanceof Plant) {
+                    touchingFood.add(e);
+                    touchingPlant = true;
+                }
+                else if(e instanceof Corpse) {
+                    touchingFood.add(e);
+                    touchingCorpse = true;
+                }
+            }
+
             //if its in my view distance
             if(dist > genome.viewRange()) continue;
 
@@ -95,7 +122,7 @@ public class Creature extends Entity {
             }
         }
 
-        // fill in values that neural network can use, vals must be normalised between 0 and 1
+        // fill in values that neural network can use, vals must be normalised
         if(nearestPlant != null) {
             seesPlant = true;
             plantAngle = nearestPlant.rel() / (genome.fieldOfView() / 2);
@@ -108,14 +135,56 @@ public class Creature extends Entity {
         }
         if(nearestCorpse != null) {
             seesCorpse = true;
-            corpseAngle = nearestCorpse.rel() / (genome.fieldOfView() / 2);;
-            corpseDistance = nearestCorpse.dist() / genome.viewRange();;
+            corpseAngle = nearestCorpse.rel() / (genome.fieldOfView() / 2);
+            corpseDistance = nearestCorpse.dist() / genome.viewRange();
         }
         else {
             seesCorpse = false;
             corpseAngle = 0;
             corpseDistance = 1;
         }
+    }
+
+    private void eat() {
+        double biteSize = radius * 0.2;
+
+        for(Entity food : touchingFood) {
+            // someone else may have finished it this tick
+            if(!food.getActive()) continue;
+
+            double taken = food.takeEnergy(biteSize);
+            // diet decides how much of the foods energy is usable
+            double gained;
+            if(food instanceof Plant) gained = taken * (1-genome.diet());
+            else gained = taken * genome.diet();
+
+            // biting should always cost something, so that eating wrong food loses energy
+            energy += gained - biteSize * 0.1;
+        }
+        energy = Math.clamp(energy, 0, maxEnergy);
+    }
+
+    private void reproduce(World world) {
+        Genome childGenome = genome.mutate(world.getRandom());
+        double childMaxEnergy = childGenome.radius() * childGenome.radius();
+        double childEnergy = childMaxEnergy / 4;
+        // making a child costs more than the energy it is given
+        double cost = childEnergy * 1.25;
+
+        // only breed if the parent keeps at least half its own energy
+        if(energy - cost < maxEnergy / 2) return;
+        energy -= cost;
+
+        // place the child just behind the parent, facing a random direction
+        double gap = radius + childGenome.radius();
+        Creature child = new Creature(
+            x - Math.cos(heading) * gap,
+            y - Math.sin(heading) * gap,
+            world.getRandom().nextDouble() * 2 * Math.PI,
+            childGenome
+        );
+        child.energy = childEnergy;
+        world.addEntity(child);
     }
 
     double[] think(double[] inputs) {
