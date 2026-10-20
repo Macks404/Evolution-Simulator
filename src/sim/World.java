@@ -13,6 +13,9 @@ public class World {
     private int maxPlants = 800;
     private double plantSpawnChance = 0.2;
 
+    private long tick = 0;
+    private final Stats stats = new Stats("stats.csv", 1000);
+
     
     World(int width, int height, int startingCreatureCount, int startingPlantCount) {
         /* 
@@ -23,9 +26,9 @@ public class World {
         this.width = width;
         this.height = height;
 
-        Genome starter = new Genome(10, 0.5, 0.5, 100, Math.toRadians(120), 0.99, 0.73, 0.01, 1);
+        Genome starter = new Genome(10, 0.5, 0.5, 100, Math.toRadians(120), 0.99, 0.73, 0.01, 0.25);
         for(int i = 0; i < startingCreatureCount; i++) {
-            entities.add(new Creature(random.nextDouble()*width, random.nextDouble()*height, random.nextDouble()*2*Math.PI, starter.mutate(random)));
+            entities.add(new Creature(random.nextDouble()*width, random.nextDouble()*height, random.nextDouble()*2*Math.PI, starter.mutate(random), new Network(Creature.BRAIN_SIZES, random)));
         }
 
         for(int i = 0; i < startingPlantCount; i++) {
@@ -50,13 +53,20 @@ public class World {
 
         entities.removeIf(entity -> !entity.getActive());
         entities.addAll(toAdd);
-        toAdd.clear();  
+        toAdd.clear();
+
+        tick++;
+        stats.record(tick, entities);
     }
 
     public void addEntity(Entity entity) {
         toAdd.add(entity);
     }
 
+
+    public long getTick() {
+        return tick;
+    }
 
     public Random getRandom() {
         return random;

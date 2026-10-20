@@ -4,14 +4,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Creature extends Entity {
+    // brain shape: 9 inputs, 6 hidden neurons, 4 outputs
+    public static final int[] BRAIN_SIZES = {9, 6, 4};
+
     private final Genome genome;
+    private final Network brain;
     private final double maxEnergy;
 
     // movement variables
     private double heading;
     private double currentSpeed;
-    private double accelerate = 1;
-    private double turn = 0.2;
+    private double accelerate = 0;
+    private double turn = 0;
     private double maxTurnRate = 0.1;
 
     record Sighting(Entity entity, double dist, double rel) {}
@@ -35,14 +39,15 @@ public class Creature extends Entity {
     private double corpseDistance;
 
     // brain outputs
-    private double eat = 1;
-    private double reproduce = 1;
+    private double eat = 0;
+    private double reproduce = 0;
 
-    public Creature(double x, double y, double heading, Genome genome) {
+    public Creature(double x, double y, double heading, Genome genome, Network brain) {
         this.x = x;
         this.y = y;
         this.heading = heading;
         this.genome = genome;
+        this.brain = brain;
         radius = genome.radius();
         maxEnergy = radius * radius;
         color = ((int)(genome.red() * 255) << 16)
@@ -54,6 +59,7 @@ public class Creature extends Entity {
     @Override 
     protected void tick(World world) {
         look(world);
+        think();
         if(eat > 0.5) eat();
         if(reproduce > 0.5) reproduce(world);
 
@@ -181,13 +187,37 @@ public class Creature extends Entity {
             x - Math.cos(heading) * gap,
             y - Math.sin(heading) * gap,
             world.getRandom().nextDouble() * 2 * Math.PI,
-            childGenome
+            childGenome,
+            brain.mutate(world.getRandom(), genome.mutationRate())
         );
         child.energy = childEnergy;
         world.addEntity(child);
     }
 
-    double[] think(double[] inputs) {
-        return null;
+    public Genome getGenome() {
+        return genome;
+    }
+
+    private void think() {
+        // senses in, all roughly -1 to 1 (booleans become 1 or 0)
+        double[] inputs = {
+            seesPlant ? 1 : 0,
+            plantAngle,
+            plantDistance,
+            seesCorpse ? 1 : 0,
+            corpseAngle,
+            corpseDistance,
+            energy / maxEnergy,
+            touchingPlant ? 1 : 0,
+            touchingCorpse ? 1 : 0
+        };
+
+        double[] outputs = brain.forward(inputs);
+
+        // tanh gives -1 to 1
+        turn = outputs[0];                     // -1 = full left, 1 = full right
+        accelerate = (outputs[1] + 1) / 2;     // 0 to 1, no reversing
+        eat = (outputs[2] + 1) / 2;            // 0 to 1, eats above 0.5
+        reproduce = (outputs[3] + 1) / 2;      // 0 to 1, tries to breed above 0.5
     }
 }

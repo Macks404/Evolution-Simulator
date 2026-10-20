@@ -10,7 +10,7 @@ public class Main {
         JFrame window = new JFrame();
 
         // initial window settings
-        window.setSize(1280,720);
+        window.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
         // ICON TRAY SETTINGS
         // icon
@@ -41,7 +41,7 @@ public class Main {
 
 
         // WORLD
-        World world = new World(1280,720,100,500);
+        World world = new World(1920,1080,100,500);
         Renderer renderer = new Renderer(world);
         SimLoop loop = new SimLoop(world, renderer);
         new Thread(loop).start();
