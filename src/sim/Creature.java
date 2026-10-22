@@ -1,14 +1,18 @@
 package sim;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class Creature extends Entity {
-    // brain shape: 9 inputs, 6 hidden neurons, 4 outputs
-    public static final int[] BRAIN_SIZES = {9, 6, 4};
+    // assessor: looks at one seen creature at a time, 8 facts in, 4 numbers out
+    public static final int[] ASSESSOR_SIZES = {8, 6, 4};
+    // brain shape: 9 own senses + 8 pooled assessor numbers (4 sums, 4 maxes) in, 6 hidden, 4 outputs
+    public static final int[] BRAIN_SIZES = {17, 6, 4};
 
     private final Genome genome;
     private final Network brain;
+    private final Network assessor;
     private final double maxEnergy;
 
     // movement variables
@@ -42,12 +46,13 @@ public class Creature extends Entity {
     private double eat = 0;
     private double reproduce = 0;
 
-    public Creature(double x, double y, double heading, Genome genome, Network brain) {
+    public Creature(double x, double y, double heading, Genome genome, Network brain, Network assessor) {
         this.x = x;
         this.y = y;
         this.heading = heading;
         this.genome = genome;
         this.brain = brain;
+        this.assessor = assessor;
         radius = genome.radius();
         maxEnergy = radius * radius;
         color = ((int)(genome.red() * 255) << 16)
@@ -188,14 +193,57 @@ public class Creature extends Entity {
             y - Math.sin(heading) * gap,
             world.getRandom().nextDouble() * 2 * Math.PI,
             childGenome,
-            brain.mutate(world.getRandom(), genome.mutationRate())
+            brain.mutate(world.getRandom(), genome.mutationRate()),
+            assessor.mutate(world.getRandom(), genome.mutationRate())
         );
         child.energy = childEnergy;
         world.addEntity(child);
     }
 
-    public Genome getGenome() {
-        return genome;
+    // run every seen creature through the assessor, then pool the answers
+    private double[] assessCreatures() {
+        int n = ASSESSOR_SIZES[ASSESSOR_SIZES.length - 1];
+        double[] sum = new double[n];
+        double[] max = new double[n];
+        // start max at -1 (the lowest tanh can give) so the first sighting always replaces it
+        Arrays.fill(max, -1);
+
+        for(Sighting s : visibleCreatures) {
+            double[] answer = assessor.forward(describe(s));
+            for(int i = 0; i < n; i++) {
+                sum[i] += answer[i];
+                max[i] = Math.max(max[i], answer[i]);
+            }
+        }
+
+        double[] pooled = new double[n * 2];
+        if(visibleCreatures.isEmpty()) return pooled; // sees nobody: all zeros
+
+        for(int i = 0; i < n; i++) {
+            pooled[i] = Math.tanh(sum[i] / 5); // squash so a crowd of 50 doesn't swamp the brain
+            pooled[n + i] = max[i];
+        }
+        return pooled;
+    }
+
+    // raw facts about one seen creature, all roughly -1 to 1
+    private double[] describe(Sighting s) {
+        Creature other = (Creature) s.entity();
+
+        // which way it faces compared to me: 0 = same way as me, -1 or 1 = the opposite way
+        double relHeading = other.heading - heading;
+        relHeading = Math.atan2(Math.sin(relHeading), Math.cos(relHeading)) / Math.PI;
+
+        return new double[] {
+            s.rel() / (genome.fieldOfView() / 2),             // angle: -1 left edge, 1 right edge
+            s.dist() / genome.viewRange(),                     // distance: 0 touching, 1 edge of sight
+            Math.tanh(other.radius / radius - 1),              // size: 0 = same size, + bigger, - smaller
+            other.genome.red(),                                // colour
+            other.genome.green(),
+            other.genome.blue(),
+            relHeading,
+            other.currentSpeed / other.genome.maxSpeed()       // how fast it's going, 0 to 1
+        };
     }
 
     private void think() {
@@ -212,12 +260,32 @@ public class Creature extends Entity {
             touchingCorpse ? 1 : 0
         };
 
-        double[] outputs = brain.forward(inputs);
+        // what it thinks of the creatures it can see, always 8 numbers however many it sees
+        double[] creatureInputs = assessCreatures();
+
+        // join the two arrays into the 17 brain inputs
+        double[] allInputs = new double[inputs.length + creatureInputs.length];
+        System.arraycopy(inputs, 0, allInputs, 0, inputs.length);
+        System.arraycopy(creatureInputs, 0, allInputs, inputs.length, creatureInputs.length);
+
+        double[] outputs = brain.forward(allInputs);
 
         // tanh gives -1 to 1
         turn = outputs[0];                     // -1 = full left, 1 = full right
         accelerate = (outputs[1] + 1) / 2;     // 0 to 1, no reversing
         eat = (outputs[2] + 1) / 2;            // 0 to 1, eats above 0.5
         reproduce = (outputs[3] + 1) / 2;      // 0 to 1, tries to breed above 0.5
+    }
+
+    public double getHeading() {
+        return heading;
+    }
+
+    public double getCurrentSpeed() {
+        return currentSpeed;
+    }
+
+    public Genome getGenome() {
+        return genome;
     }
 }

@@ -42,7 +42,7 @@ public class Network {
     }
 
     public double[] forward(double[] inputs) {
-        double[] values = inputs;                            // (1)
+        double[] values = inputs;                           // (1)
         for(int l = 0; l < weights.length; l++) {           // (2) once per layer of connections
             double[] next = new double[sizes[l + 1]];       // (3) one slot per neuron in the next layer
 

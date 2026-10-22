@@ -19,12 +19,12 @@ public class SimLoop implements Runnable {
                 renderer.repaint();
             }
             
-            // try {
-            //     Thread.sleep(1);
-            // }
-            // catch(InterruptedException e) {
-            //     System.out.println(e);
-            // }
+            try {
+                Thread.sleep(1);
+            }
+            catch(InterruptedException e) {
+                System.out.println(e);
+            }
         }
     }
 }

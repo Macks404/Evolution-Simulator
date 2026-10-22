@@ -10,7 +10,7 @@ public class World {
     private List<Entity> toAdd = new ArrayList<>();
     private Random random = new Random(10);
 
-    private int maxPlants = 800;
+    private int maxPlants = 250;
     private double plantSpawnChance = 0.2;
 
     private long tick = 0;
@@ -28,7 +28,7 @@ public class World {
 
         Genome starter = new Genome(10, 0.5, 0.5, 100, Math.toRadians(120), 0.99, 0.73, 0.01, 0.25);
         for(int i = 0; i < startingCreatureCount; i++) {
-            entities.add(new Creature(random.nextDouble()*width, random.nextDouble()*height, random.nextDouble()*2*Math.PI, starter.mutate(random), new Network(Creature.BRAIN_SIZES, random)));
+            entities.add(new Creature(random.nextDouble()*width, random.nextDouble()*height, random.nextDouble()*2*Math.PI, starter.mutate(random), new Network(Creature.BRAIN_SIZES, random), new Network(Creature.ASSESSOR_SIZES, random)));
         }
 
         for(int i = 0; i < startingPlantCount; i++) {
