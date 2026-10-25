@@ -5,6 +5,7 @@ public class SimLoop implements Runnable {
     private final Renderer renderer;
     private volatile boolean running = true;
     private volatile boolean isWatching = true;
+    private volatile int sleepMs = 30;
 
     SimLoop(World world, Renderer renderer) {
         this.world = world;
@@ -19,7 +20,7 @@ public class SimLoop implements Runnable {
             if(isWatching){
                 renderer.repaint();
                 try {
-                    Thread.sleep(10);
+                    Thread.sleep(sleepMs);
                 }
                 catch(InterruptedException e) {
                     System.out.println(e);
@@ -27,6 +28,10 @@ public class SimLoop implements Runnable {
             }
 
         }
+    }
+
+    public void setSleepMs(int val) {
+        sleepMs = val;
     }
 
     public void setWatching(boolean val) {

@@ -9,8 +9,12 @@ import java.awt.image.BufferedImage;
 
 import javax.swing.*;
 
+import com.formdev.flatlaf.FlatDarkLaf;
+
 public class Main {
     public static void main(String[] args) {
+        FlatDarkLaf.setup();
+
         JFrame window = new JFrame();
 
         // initial window settings
@@ -50,6 +54,14 @@ public class Main {
         SimLoop loop = new SimLoop(world, renderer);
         new Thread(loop).start();
 
+        // controls panel
+        JSlider speed = new JSlider(0,60,30);
+        speed.addChangeListener(e -> loop.setSleepMs(60-speed.getValue()));
+
+        JPanel controls = new JPanel();
+        controls.add(new JLabel("Speed"));
+        controls.add(speed);
+
         // minimise / restore --> set to max speed
         window.addWindowListener(new WindowAdapter() {
             @Override 
@@ -68,8 +80,9 @@ public class Main {
             public void componentShown(ComponentEvent e) { loop.setWatching(true); }
         });
 
-        renderer.setBackground(Color.darkGray);
-        window.add(renderer);
+        renderer.setBackground(new Color(0x1e1f26));
+        window.add(renderer, BorderLayout.CENTER);
+        window.add(controls, BorderLayout.EAST);
         window.setVisible(true);
     }
 }
