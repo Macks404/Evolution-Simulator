@@ -13,15 +13,15 @@ public class World {
     private long tick = 0;
     private final Stats stats = new Stats("stats.csv", 1000);
 
+    // spawn rate of plants made through no reproduction in ticks
+    private int newPlantSpawnRate = 500;
+    private int plantCap = 1000;
+    private int plantCount = 0;
     
     World(int width, int height, int startingCreatureCount, int startingPlantCount) {
-        /* 
-        When a world is created: 
-        - Create omnivores of the same species scattered throughout the map
-        - Create plants scattered throughout the map
-        */
         this.width = width;
         this.height = height;
+        plantCount = startingPlantCount;
 
         Genome starter = new Genome(10, 0.5, 0.5, 100, Math.toRadians(120), 0.99, 0.73, 0.01, 0.25);
         for(int i = 0; i < startingCreatureCount; i++) {
@@ -38,8 +38,14 @@ public class World {
             entity.update(this);
 
             if(!entity.getActive() && entity instanceof Creature) {
-                toAdd.add(new Corpse(entity.getX(), entity.getY(), entity.getRadius(), 0xFF0000, entity.getEnergy()));
+                addEntity(new Corpse(entity.getX(), entity.getY(), entity.getRadius(), 0xFF0000, entity.getEnergy()));
             }
+            if(!entity.getActive() && entity instanceof Plant) {
+                plantCount--;
+            }
+        }
+        if(tick%newPlantSpawnRate == 0) {
+            addEntity(new Plant(random.nextInt(0,width), random.nextInt(0,height), 5, 0x23c243));
         }
 
         entities.removeIf(entity -> !entity.getActive());
@@ -51,6 +57,10 @@ public class World {
     }
 
     public void addEntity(Entity entity) {
+        if(entity instanceof Plant) {
+            if(plantCount >= plantCap) return;
+            plantCount++;
+        }
         toAdd.add(entity);
     }
 
