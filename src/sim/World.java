@@ -10,9 +10,6 @@ public class World {
     private List<Entity> toAdd = new ArrayList<>();
     private Random random = new Random(10);
 
-    private int maxPlants = 250;
-    private double plantSpawnChance = 0.2;
-
     private long tick = 0;
     private final Stats stats = new Stats("stats.csv", 1000);
 
@@ -37,18 +34,12 @@ public class World {
     }
 
     public void tick() {
-        int plantCount = 0;
         for(Entity entity : entities) {
             entity.update(this);
-
-            if(entity instanceof Plant) plantCount++;
 
             if(!entity.getActive() && entity instanceof Creature) {
                 toAdd.add(new Corpse(entity.getX(), entity.getY(), entity.getRadius(), 0xFF0000, entity.getEnergy()));
             }
-        }
-        if(plantCount < maxPlants && random.nextDouble() < plantSpawnChance) {
-            toAdd.add(new Plant(random.nextDouble()*width, random.nextDouble()*height, 5, 0x23c243));
         }
 
         entities.removeIf(entity -> !entity.getActive());

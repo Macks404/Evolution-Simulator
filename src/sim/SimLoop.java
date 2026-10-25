@@ -5,6 +5,7 @@ public class SimLoop implements Runnable {
     private final Renderer renderer;
     private volatile boolean running = true;
     private volatile boolean paused = false;
+    private volatile boolean isWatching = true;
 
     SimLoop(World world, Renderer renderer) {
         this.world = world;
@@ -17,14 +18,21 @@ public class SimLoop implements Runnable {
             if(!paused) {
                 synchronized (world) { world.tick(); }
                 renderer.repaint();
-            }
+            } 
             
-            try {
-                Thread.sleep(1);
+            if(isWatching){
+                try {
+                    Thread.sleep(1);
+                }
+                catch(InterruptedException e) {
+                    System.out.println(e);
+                }
             }
-            catch(InterruptedException e) {
-                System.out.println(e);
-            }
+
         }
+    }
+
+    public void setWatching(boolean val) {
+        isWatching = val;
     }
 }

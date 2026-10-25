@@ -1,6 +1,10 @@
 package sim;
 
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 
 import javax.swing.*;
@@ -41,13 +45,31 @@ public class Main {
 
 
         // WORLD
-        World world = new World(1920,1080,100,500);
+        World world = new World(1920,1080,100,250);
         Renderer renderer = new Renderer(world);
         SimLoop loop = new SimLoop(world, renderer);
         new Thread(loop).start();
+
+        // minimise / restore --> set to max speed
+        window.addWindowListener(new WindowAdapter() {
+            @Override 
+            public void windowIconified(WindowEvent e) { loop.setWatching(false); }
+
+            @Override 
+            public void windowDeiconified(WindowEvent e) { loop.setWatching(true); }
+        });
+
+        // close window to tray --> set to max speed
+        window.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentHidden(ComponentEvent e) { loop.setWatching(false); }
+
+            @Override
+            public void componentShown(ComponentEvent e) { loop.setWatching(true); }
+        });
+
         renderer.setBackground(Color.darkGray);
         window.add(renderer);
-
         window.setVisible(true);
     }
 }

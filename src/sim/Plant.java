@@ -11,10 +11,11 @@ public class Plant extends Entity {
 
     @Override 
     protected void tick(World world) {
-        energy = Math.clamp(energy+0.025, 0, 100);
+        energy = Math.clamp(energy+world.getRandom().nextDouble(0.05), 0, 100);
 
         if(energy >= 100) {
-            // reproduce
+            energy = 10;
+            world.addEntity(new Plant(x+world.getRandom().nextInt(-10,11), y+world.getRandom().nextInt(-10,11), 5, 0x23c243));
         }
     }
 }
