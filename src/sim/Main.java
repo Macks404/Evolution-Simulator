@@ -19,6 +19,8 @@ public class Main {
 
         // initial window settings
         window.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        window.setMinimumSize(new Dimension(800,500));
+        window.setLocationRelativeTo(null);
 
         // ICON TRAY SETTINGS
         // icon
@@ -55,12 +57,22 @@ public class Main {
         new Thread(loop).start();
 
         // controls panel
-        JSlider speed = new JSlider(0,60,30);
+        JSlider speed = new JSlider(0,59,30);
         speed.addChangeListener(e -> loop.setSleepMs(60-speed.getValue()));
+
+        JToggleButton maxSpeedBtn = new JToggleButton("Max Speed");
+        maxSpeedBtn.addActionListener(e -> {
+            loop.setMaxSpeed(maxSpeedBtn.isSelected());
+            renderer.setHidden(maxSpeedBtn.isSelected());
+        });
 
         JPanel controls = new JPanel();
         controls.add(new JLabel("Speed"));
         controls.add(speed);
+        controls.add(maxSpeedBtn);
+
+        
+
 
         // minimise / restore --> set to max speed
         window.addWindowListener(new WindowAdapter() {

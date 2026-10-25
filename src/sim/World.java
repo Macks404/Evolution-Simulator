@@ -14,8 +14,8 @@ public class World {
     private final Stats stats = new Stats("stats.csv", 1000);
 
     // spawn rate of plants made through no reproduction in ticks
-    private int newPlantSpawnRate = 500;
-    private int plantCap = 1000;
+    private int newPlantSpawnRate = 250;
+    private int plantCap = 2000;
     private int plantCount = 0;
     
     World(int width, int height, int startingCreatureCount, int startingPlantCount) {

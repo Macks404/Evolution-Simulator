@@ -18,6 +18,8 @@ import javax.swing.JPanel;
 public class Renderer extends JPanel {
     private final World world;
 
+    private volatile boolean hidden = false;
+
     // cam controls
     private double camX, camY, zoom = 1;
     private Point dragFrom;
@@ -57,6 +59,12 @@ public class Renderer extends JPanel {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
 
+        if(hidden) {
+            g.setColor(new Color(0xc8c8d0));
+            g.drawString("Max speed: tick " + world.getTick(), 12, 22);
+            return;
+        }
+
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.scale(zoom, zoom);
@@ -87,5 +95,10 @@ public class Renderer extends JPanel {
         g.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         g.setColor(new Color(0xc8c8d0));
         g.drawString("Tick " + world.getTick(), 12, 22);
+    }
+
+    public void setHidden(boolean val) {
+        hidden = val;
+        repaint();
     }
 }

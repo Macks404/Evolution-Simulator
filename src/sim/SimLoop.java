@@ -6,6 +6,7 @@ public class SimLoop implements Runnable {
     private volatile boolean running = true;
     private volatile boolean isWatching = true;
     private volatile int sleepMs = 30;
+    private volatile boolean maxSpeed = false;
 
     SimLoop(World world, Renderer renderer) {
         this.world = world;
@@ -17,7 +18,7 @@ public class SimLoop implements Runnable {
         while(running) {
             synchronized (world) { world.tick(); }
             
-            if(isWatching){
+            if(isWatching && !maxSpeed){
                 renderer.repaint();
                 try {
                     Thread.sleep(sleepMs);
@@ -27,7 +28,14 @@ public class SimLoop implements Runnable {
                 }
             }
 
+            if(maxSpeed && isWatching && world.getTick() % 1000 == 0) {
+                renderer.repaint();
+            }
         }
+    }
+
+    public void setMaxSpeed(boolean val) {
+        maxSpeed = val;
     }
 
     public void setSleepMs(int val) {
