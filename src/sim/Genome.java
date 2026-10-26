@@ -9,7 +9,8 @@ public record Genome(
     double viewRange,
     double fieldOfView,
     double red, double green, double blue,   // 0 to 1 each
-    double mutationRate
+    double mutationRate,
+    double birthScale
 ) {
     public Genome mutate(Random random) {
         return new Genome(
@@ -21,7 +22,24 @@ public record Genome(
             clamp(nudge(red,         0.05, random), 0, 1),
             clamp(nudge(green,       0.05, random), 0, 1),
             clamp(nudge(blue,        0.05, random), 0, 1),
-            clamp(mutationRate * Math.exp(random.nextGaussian() * 0.1), 0.01, 5)
+            clamp(mutationRate * Math.exp(random.nextGaussian() * 0.1), 0.01, 5),
+            clamp(nudge(birthScale, 0.05, random), 0.1,1)
+        );
+    }
+
+    public Genome atGrowth(double growth) {
+        growth = Math.min(growth, 1);
+        return new Genome(
+            radius * Math.sqrt(birthScale*birthScale + (1 - birthScale*birthScale) * growth), 
+            maxSpeed * (0.5 + 0.5 * growth), 
+            diet,
+            viewRange,
+            fieldOfView, 
+            red, 
+            green, 
+            blue, 
+            mutationRate,
+            birthScale
         );
     }
 
@@ -35,7 +53,8 @@ public record Genome(
                 Math.abs(red - other.red)
                 + Math.abs(green - other.green)
                 + Math.abs(blue - other.blue)
-            ) / 3;
+            ) / 3
+            + Math.abs(birthScale - other.birthScale) / 0.9;
     }
 
     private double nudge(double value, double step, Random random) {

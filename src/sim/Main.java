@@ -51,7 +51,7 @@ public class Main {
 
 
         // WORLD
-        World world = new World(8000,5000,100,200);
+        World world = new World(4000,2500,100,200);
         Renderer renderer = new Renderer(world);
         SimLoop loop = new SimLoop(world, renderer);
         new Thread(loop).start();

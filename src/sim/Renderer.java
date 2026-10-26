@@ -15,6 +15,8 @@ import java.awt.Font;
 
 import javax.swing.JPanel;
 
+import sim.World.SimTime;
+
 public class Renderer extends JPanel {
     private final World world;
 
@@ -81,7 +83,7 @@ public class Renderer extends JPanel {
                 if(e instanceof Creature creature) {
                     // darker ring round the edge
                     g2.setColor(c.darker());
-                    g2.setStroke(new BasicStroke((float)Math.clamp(3.5/zoom, 0.99,radius/2)));
+                    g2.setStroke(new BasicStroke((float)Math.clamp(3.5/zoom, Math.min(0.99, radius/2), radius/2)));
                     g2.draw(new Ellipse2D.Double(e.getX() - radius, e.getY() - radius, radius * 2, radius * 2));
 
                     double h = creature.getHeading();
@@ -93,7 +95,8 @@ public class Renderer extends JPanel {
 
         g.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         g.setColor(new Color(0xc8c8d0));
-        g.drawString("Tick " + world.getTick(), 12, 22);
+        g.drawString("Tick " + world.getTick(), 10, 20);
+        g.drawString(new SimTime(world.getTick()).toString(), 10, 40);
     }
 
     public void setHidden(boolean val) {

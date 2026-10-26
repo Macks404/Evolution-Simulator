@@ -10,7 +10,7 @@ public class World {
     private List<Entity> toAdd = new ArrayList<>();
     private Random random = new Random(10);
 
-    private long tick = 0;
+    private long tick = 0;    
     private final Stats stats = new Stats("stats.csv", 1000);
 
     // spawn rate of plants made through no reproduction in ticks
@@ -24,9 +24,10 @@ public class World {
     private int creatureCount = 0;
 
     private final Genome[] premadeGenomes = {
-        new Genome(4, 7, 0.05, 120, Math.toRadians(120), 1, 1, 0, 0.25), //yellow small herbivore
-        new Genome(5, 5, 0.6, 120, Math.toRadians(120), 1, 1, 1, 0.25), //white avg omnivore
-        new Genome(5, 6, 0.95, 120, Math.toRadians(120), 1, 0, 1, 0.25) //purple large carnivore
+        new Genome(6, 7, 0.05, 120, Math.toRadians(120), 1, 1, 0, 0.25, 0.3), //yellow herbivore
+        new Genome(5, 5, 0.35, 120, Math.toRadians(120), 1, 1, 1, 0.25, 0.3), //white omnivore
+        new Genome(10, 5, 0.65, 120, Math.toRadians(120), 0, 1, 1, 0.25, 0.3), //large cyan omnivore
+        new Genome(5, 6, 0.95, 120, Math.toRadians(120), 1, 0, 1, 0.25, 0.3) //purple carnivore
     };
     
     World(int width, int height, int startingCreatureCount, int startingPlantCount) {
@@ -67,10 +68,12 @@ public class World {
             if(parent != null && random.nextBoolean() && parent.childrenCount > 0) {
                 // 50%: a mutated copy of someone alive, so good genes stick around
                 double rate = parent.getGenome().mutationRate();
+                stats.immigrants++;
                 addEntity(new Creature(x, y, h, parent.getGenome().mutate(random),
                         parent.getBrain().mutate(random, rate), parent.getAssessor().mutate(random, rate)));
             } else {
                 // 50%: a fresh random one, for new ideas
+                stats.immigrants++;
                 addEntity(new Creature(x, y, h, premadeGenomes[random.nextInt(0,premadeGenomes.length)].mutate(random),
                         new Network(Creature.BRAIN_SIZES, random), new Network(Creature.ASSESSOR_SIZES, random)));
             }
@@ -78,8 +81,8 @@ public class World {
         else if(tick%newCreatureSpawnRate==0) {
             Creature c = randomCreature();
             double x = c.getX(), y = c.getY(), h = random.nextDouble()*2*Math.PI;
-            Genome genome = premadeGenomes[2];
-
+            Genome genome = premadeGenomes[random.nextInt(1,3)];
+            stats.immigrants++;
             addEntity(new Creature(x, y, h, genome.mutate(random),
                         new Network(Creature.BRAIN_SIZES, random), new Network(Creature.ASSESSOR_SIZES, random)));
         }
@@ -89,7 +92,9 @@ public class World {
 
             if(entity instanceof Plant) plantCount--;
             if(entity instanceof Creature c) {
+                if(c.killedByAttack) stats.killed++;
                 creatureCount--;
+                stats.deaths++;
                 addEntity(new Corpse(entity.getX(), entity.getY(), entity.getRadius(), 0xFF0000, entity.getEnergy() + c.lostToAttack));
             }
             return true; // remove it
@@ -112,6 +117,19 @@ public class World {
         toAdd.add(entity);
     }
 
+    public record SimTime(long ticks) {
+        public static final long SECONDS_PER_TICK = 324;
+
+        public long totalSeconds() { return ticks * SECONDS_PER_TICK; }
+        public long days()    { return totalSeconds() / 86400; }
+        public long hours()   { return (totalSeconds() % 86400) / 3600; }
+        public long minutes() { return (totalSeconds() % 3600) / 60; }
+
+        @Override
+        public String toString() {
+            return String.format("Day %d  %02d:%02d", days() + 1, hours(), minutes());
+        }
+    }
 
     public long getTick() {
         return tick;
@@ -140,5 +158,9 @@ public class World {
         }
         if(alive.isEmpty()) return null;
         return alive.get(random.nextInt(alive.size()));
+    }
+
+    public Stats getStats() {
+        return stats;
     }
 }

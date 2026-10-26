@@ -13,7 +13,6 @@ public class Creature extends Entity {
     private final Genome genome;
     private final Network brain;
     private final Network assessor;
-    private final double maxEnergy;
 
     // movement variables
     private double heading;
@@ -21,6 +20,11 @@ public class Creature extends Entity {
     private double accelerate = 0;
     private double turn = 0;
     private double maxTurnRate = 0.15;
+
+    private double maxEnergy;
+    // 0 = just born, 1 = adult. only goes up when the creature can pay for it
+    private double growth = 0;
+    public static final int TICKS_TO_ADULT = 800; // about 3 days
 
     record Sighting(Entity entity, double dist, double rel) {}
 
@@ -54,6 +58,7 @@ public class Creature extends Entity {
 
     public int childrenCount = 0;
     public double lostToAttack = 0;
+    public boolean killedByAttack = false;
 
     public Creature(double x, double y, double heading, Genome genome, Network brain, Network assessor) {
         this.x = x;
@@ -62,7 +67,7 @@ public class Creature extends Entity {
         this.genome = genome;
         this.brain = brain;
         this.assessor = assessor;
-        radius = genome.radius();
+        radius = genome.atGrowth(growth).radius();
         maxEnergy = radius * radius;
         color = ((int)(genome.red() * 255) << 16)
                 | ((int)(genome.green() * 255) << 8)
@@ -77,10 +82,12 @@ public class Creature extends Entity {
         if(eat > 0.5) eat();
         if(reproduce > 0.5) reproduce(world);
         if(attack > 0.5) attack();
+        grow();
+        lostToAttack *= 0.95;
 
         // apply movement
         heading += turn * maxTurnRate;
-        currentSpeed = accelerate * genome.maxSpeed();
+        currentSpeed = accelerate * genome.atGrowth(growth).maxSpeed();
         x += Math.cos(heading) * currentSpeed;
         y += Math.sin(heading) * currentSpeed;
         // decrease energy with movement
@@ -182,6 +189,7 @@ public class Creature extends Entity {
 
             double damage = 0.05 * (radius*2) * (radius / target.radius) * genome.diet() * genome.diet();
             double taken = target.takeEnergy(damage);
+            if(!target.getActive()) target.killedByAttack = true;
             target.lostToAttack += taken;
             target.hurt += taken;
         }
@@ -212,18 +220,39 @@ public class Creature extends Entity {
         energy = Math.clamp(energy, 0, maxEnergy);
     }
 
+    private void grow() {
+        if(growth >= 1) return;
+        // only grow with a surplus, so a starving creature doesn't spend its last energy on growing
+        if(energy < maxEnergy * 0.5) return;
+
+        double step = Math.min(1.0 / TICKS_TO_ADULT, 1 - growth);
+        // r^2 grows linearly with growth, so each step costs the same.
+        // birth to adult adds up to 0.6 * adultR^2 * (1 - b^2): same rate as building a child
+        double b = genome.birthScale();
+        energy -= 0.83 * genome.radius() * genome.radius() * (1 - b*b) * step;
+        growth += step;
+
+        radius = genome.atGrowth(growth).radius();
+        maxEnergy = radius * radius;
+    }
+
     private void reproduce(World world) {
+        // only adults can breed
+        if(growth < 1) return;
+
         Genome childGenome = genome.mutate(world.getRandom());
-        double childMaxEnergy = childGenome.radius() * childGenome.radius();
+        // children are born small, so they're cheap to make
+        double childRadius = childGenome.atGrowth(0).radius();
+        double childMaxEnergy = childRadius * childRadius;
         double childEnergy = childMaxEnergy / 4;
 
-        double cost = childMaxEnergy * 0.6;
+        double cost = childMaxEnergy * 1.25;
 
         if(energy - cost < maxEnergy / 4) return;
         energy -= cost;
 
         // place the child just behind the parent, facing a random direction
-        double gap = radius + childGenome.radius();
+        double gap = radius + childRadius;
         Creature child = new Creature(
             x - Math.cos(heading) * gap,
             y - Math.sin(heading) * gap,
@@ -235,6 +264,7 @@ public class Creature extends Entity {
         child.energy = childEnergy;
         world.addEntity(child);
         childrenCount++;
+        world.getStats().births++;
     }
 
     // run every seen creature through the assessor, then pool the answers
@@ -279,7 +309,7 @@ public class Creature extends Entity {
             other.genome.green(),
             other.genome.blue(),
             relHeading,
-            other.currentSpeed / other.genome.maxSpeed()       // how fast it's going, 0 to 1
+            other.currentSpeed / other.genome.atGrowth(other.growth).maxSpeed() // how fast it's going, 0 to 1
         };
     }
 
@@ -333,8 +363,16 @@ public class Creature extends Entity {
         return heading;
     }
 
+    public double getMaxEnergy() {
+        return maxEnergy;
+    }
+
     public double getCurrentSpeed() {
         return currentSpeed;
+    }
+
+    public double getGrowth() {
+        return growth;
     }
 
     public Genome getGenome() {
