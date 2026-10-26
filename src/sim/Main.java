@@ -65,14 +65,12 @@ public class Main {
             loop.setMaxSpeed(maxSpeedBtn.isSelected());
             renderer.setHidden(maxSpeedBtn.isSelected());
         });
+        maxSpeedBtn.setFocusable(false);
 
         JPanel controls = new JPanel();
         controls.add(new JLabel("Speed"));
         controls.add(speed);
         controls.add(maxSpeedBtn);
-
-        
-
 
         // minimise / restore --> set to max speed
         window.addWindowListener(new WindowAdapter() {

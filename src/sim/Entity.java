@@ -7,6 +7,8 @@ public abstract class Entity {
     protected boolean active = true; // when false entity is despawned
 
     public final void update(World world) {
+        if(!active) return;
+        
         tick(world);
         if (energy <= 0) active = false;
     }

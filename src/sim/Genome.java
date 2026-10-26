@@ -14,9 +14,9 @@ public record Genome(
     public Genome mutate(Random random) {
         return new Genome(
             clamp(nudge(radius,      1.0,  random), 2, 30),
-            clamp(nudge(maxSpeed,    0.1,  random), 0.05, 5),
+            clamp(nudge(maxSpeed,    0.5,  random), 0.05, 25),
             clamp(nudge(diet,        0.05, random), 0, 1),
-            clamp(nudge(viewRange,   5.0,  random), 10, 300),
+            clamp(nudge(viewRange,   25.0,  random), 10, 1500),
             clamp(nudge(fieldOfView, 0.1,  random), 0.1, 2 * Math.PI),
             clamp(nudge(red,         0.05, random), 0, 1),
             clamp(nudge(green,       0.05, random), 0, 1),

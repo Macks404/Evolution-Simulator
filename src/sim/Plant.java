@@ -2,7 +2,7 @@ package sim;
 
 public class Plant extends Entity {
     private int reproductionCount = 0;
-    private int reproductionCap = 1;
+    private int reproductionCap = 10;
 
     Plant(double x, double y, double radius, int color) {
         this.x = x;

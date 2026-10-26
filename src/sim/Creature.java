@@ -8,7 +8,7 @@ public class Creature extends Entity {
     // assessor: looks at one seen creature at a time, 8 facts in, 4 numbers out
     public static final int[] ASSESSOR_SIZES = {8, 6, 4};
     // brain shape: 9 own senses + 8 pooled assessor numbers (4 sums, 4 maxes) in, 6 hidden, 4 outputs
-    public static final int[] BRAIN_SIZES = {17, 6, 4};
+    public static final int[] BRAIN_SIZES = {21, 12, 6};
 
     private final Genome genome;
     private final Network brain;
@@ -20,7 +20,7 @@ public class Creature extends Entity {
     private double currentSpeed;
     private double accelerate = 0;
     private double turn = 0;
-    private double maxTurnRate = 0.1;
+    private double maxTurnRate = 0.15;
 
     record Sighting(Entity entity, double dist, double rel) {}
 
@@ -32,11 +32,16 @@ public class Creature extends Entity {
     private final List<Entity> touchingFood = new ArrayList<>();
     private boolean touchingPlant = false;
     private boolean touchingCorpse = false;
+    private boolean touchingCreature = false;
+    private final List<Creature> touchingCreatureL = new ArrayList<>();
+    
 
     // info for brain
     private boolean seesPlant;
     private double plantAngle;
     private double plantDistance;
+    private double memory = 0;
+    private double hurt;
     
     private boolean seesCorpse;
     private double corpseAngle;
@@ -45,6 +50,10 @@ public class Creature extends Entity {
     // brain outputs
     private double eat = 0;
     private double reproduce = 0;
+    private double attack = 0;
+
+    public int childrenCount = 0;
+    public double lostToAttack = 0;
 
     public Creature(double x, double y, double heading, Genome genome, Network brain, Network assessor) {
         this.x = x;
@@ -58,15 +67,16 @@ public class Creature extends Entity {
         color = ((int)(genome.red() * 255) << 16)
                 | ((int)(genome.green() * 255) << 8)
                 |  (int)(genome.blue() * 255);
-        energy = maxEnergy;
+        energy = maxEnergy / 4;
     }
 
     @Override 
     protected void tick(World world) {
         look(world);
-        think();
+        think(world);
         if(eat > 0.5) eat();
         if(reproduce > 0.5) reproduce(world);
+        if(attack > 0.5) attack();
 
         // apply movement
         heading += turn * maxTurnRate;
@@ -74,10 +84,12 @@ public class Creature extends Entity {
         x += Math.cos(heading) * currentSpeed;
         y += Math.sin(heading) * currentSpeed;
         // decrease energy with movement
-        energy -= currentSpeed * currentSpeed / 100;
+        energy -= (radius/400) * 2.5 * currentSpeed;
+        energy -= Math.abs(turn) * (radius/400) * 0.5;
 
-        // passive decrease corrolated to size
-        energy = Math.clamp(energy-(radius/500), 0, maxEnergy);
+        // passive decrease corrolated to traits
+        energy = Math.clamp(energy-(radius/400), 0, maxEnergy);
+        energy -= (radius / 400) * 0.1 * genome.viewRange() / 1500;
     }
 
     private void look(World world) {
@@ -88,6 +100,8 @@ public class Creature extends Entity {
         touchingFood.clear();
         touchingPlant = false;
         touchingCorpse = false;
+        touchingCreature = false;
+        touchingCreatureL.clear();
 
         for(Entity e : world.getEntities()) {
             if(e == this) continue;
@@ -106,6 +120,10 @@ public class Creature extends Entity {
                 else if(e instanceof Corpse) {
                     touchingFood.add(e);
                     touchingCorpse = true;
+                }
+                else if(e instanceof Creature c) {
+                    touchingCreature = true;
+                    touchingCreatureL.add(c);
                 }
             }
 
@@ -156,18 +174,37 @@ public class Creature extends Entity {
         }
     }
 
-    private void eat() {
-        double biteSize = radius * 0.2;
+    private void attack() {
+        energy -= radius * 0.002;
 
+        for(Creature target : touchingCreatureL) {
+            if(!target.getActive()) continue;
+
+            double damage = 0.05 * (radius*2) * (radius / target.radius) * genome.diet() * genome.diet();
+            double taken = target.takeEnergy(damage);
+            target.lostToAttack += taken;
+            target.hurt += taken;
+        }
+        
+    }
+
+    private void eat() {
         for(Entity food : touchingFood) {
             // someone else may have finished it this tick
             if(!food.getActive()) continue;
-
+            
+            double biteSize;  
+            if(food instanceof Plant) {
+                biteSize = radius*0.05;
+            }
+            else {
+                biteSize = radius*0.2;
+            }
             double taken = food.takeEnergy(biteSize);
             // diet decides how much of the foods energy is usable
             double gained;
-            if(food instanceof Plant) gained = taken * (1-genome.diet());
-            else gained = taken * genome.diet();
+            if(food instanceof Plant) gained = taken * (1 - genome.diet()) * (1 - genome.diet());
+            else gained = taken * genome.diet() * genome.diet();
 
             // biting should always cost something, so that eating wrong food loses energy
             energy += gained - biteSize * 0.1;
@@ -179,11 +216,10 @@ public class Creature extends Entity {
         Genome childGenome = genome.mutate(world.getRandom());
         double childMaxEnergy = childGenome.radius() * childGenome.radius();
         double childEnergy = childMaxEnergy / 4;
-        // making a child costs more than the energy it is given
-        double cost = childEnergy * 1.25;
 
-        // only breed if the parent keeps at least half its own energy
-        if(energy - cost < maxEnergy / 2) return;
+        double cost = childMaxEnergy * 0.6;
+
+        if(energy - cost < maxEnergy / 4) return;
         energy -= cost;
 
         // place the child just behind the parent, facing a random direction
@@ -198,6 +234,7 @@ public class Creature extends Entity {
         );
         child.energy = childEnergy;
         world.addEntity(child);
+        childrenCount++;
     }
 
     // run every seen creature through the assessor, then pool the answers
@@ -246,7 +283,7 @@ public class Creature extends Entity {
         };
     }
 
-    private void think() {
+    private void think(World world) {
         // senses in, all roughly -1 to 1 (booleans become 1 or 0)
         double[] inputs = {
             seesPlant ? 1 : 0,
@@ -257,13 +294,18 @@ public class Creature extends Entity {
             corpseDistance,
             energy / maxEnergy,
             touchingPlant ? 1 : 0,
-            touchingCorpse ? 1 : 0
+            touchingCorpse ? 1 : 0,
+            touchingCreature ? 1 : 0,
+            world.getRandom().nextGaussian(),
+            memory,
+            Math.tanh(hurt)
         };
+
+        hurt = 0;
 
         // what it thinks of the creatures it can see, always 8 numbers however many it sees
         double[] creatureInputs = assessCreatures();
 
-        // join the two arrays into the 17 brain inputs
         double[] allInputs = new double[inputs.length + creatureInputs.length];
         System.arraycopy(inputs, 0, allInputs, 0, inputs.length);
         System.arraycopy(creatureInputs, 0, allInputs, inputs.length, creatureInputs.length);
@@ -275,6 +317,16 @@ public class Creature extends Entity {
         accelerate = (outputs[1] + 1) / 2;     // 0 to 1, no reversing
         eat = (outputs[2] + 1) / 2;            // 0 to 1, eats above 0.5
         reproduce = (outputs[3] + 1) / 2;      // 0 to 1, tries to breed above 0.5
+        memory = outputs[4];
+        attack = (outputs[5] + 1) / 2;
+    }
+
+    public Network getBrain() {
+        return brain;
+    }
+
+    public Network getAssessor() {
+        return assessor;
     }
 
     public double getHeading() {

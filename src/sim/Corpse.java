@@ -6,15 +6,12 @@ public class Corpse extends Entity {
         this.y = y;
         this.radius = radius;
         this.color = color;
-        this.energy = determineStartingEnergy(creatureEnergy, 50);
-    }
-
-    private double determineStartingEnergy(double creatureEnergy, double creatureHealth) {
-        return radius*radius*0.25;
+        this.energy = 0.5 * radius * radius + creatureEnergy;
     }
 
     @Override 
     protected void tick(World world) {
-        energy -= 0.01;
+        energy -= energy * 0.003;
+        if(energy < 0.5) energy = 0;
     }
 }

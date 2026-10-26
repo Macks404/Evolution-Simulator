@@ -85,7 +85,6 @@ public class Renderer extends JPanel {
                     g2.draw(new Ellipse2D.Double(e.getX() - radius, e.getY() - radius, radius * 2, radius * 2));
 
                     double h = creature.getHeading();
-                    g2.setColor(c.darker());
                     g2.draw(new Line2D.Double(e.getX(), e.getY(), e.getX() + Math.cos(h) * radius, e.getY() + Math.sin(h) * radius));
                 }
             }
