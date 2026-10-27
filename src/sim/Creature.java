@@ -5,9 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Creature extends Entity {
-    // assessor: looks at one seen creature at a time, 8 facts in, 4 numbers out
     public static final int[] ASSESSOR_SIZES = {8, 6, 4};
-    // brain shape: 9 own senses + 8 pooled assessor numbers (4 sums, 4 maxes) in, 6 hidden, 4 outputs
     public static final int[] BRAIN_SIZES = {21, 12, 6};
 
     private final Genome genome;
@@ -187,6 +185,11 @@ public class Creature extends Entity {
         for(Creature target : touchingCreatureL) {
             if(!target.getActive()) continue;
 
+            // the mouth is at the front, so only bite what's ahead of me
+            double rel = Math.atan2(target.y - y, target.x - x) - heading;
+            rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+            if(Math.abs(rel) > Math.PI / 4) continue;
+
             double damage = 0.05 * (radius*2) * (radius / target.radius) * genome.diet() * genome.diet();
             double taken = target.takeEnergy(damage);
             if(!target.getActive()) target.killedByAttack = true;
@@ -208,13 +211,10 @@ public class Creature extends Entity {
             else {
                 biteSize = radius*0.2;
             }
-            double taken = food.takeEnergy(biteSize);
-            // diet decides how much of the foods energy is usable
-            double gained;
-            if(food instanceof Plant) gained = taken * (1 - genome.diet()) * (1 - genome.diet());
-            else gained = taken * genome.diet() * genome.diet();
+            double fit = food instanceof Plant ? 1 - genome.diet() : genome.diet();
+            double taken = food.takeEnergy(biteSize * fit);
+            double gained = taken * fit;
 
-            // biting should always cost something, so that eating wrong food loses energy
             energy += gained - biteSize * 0.1;
         }
         energy = Math.clamp(energy, 0, maxEnergy);
@@ -222,12 +222,9 @@ public class Creature extends Entity {
 
     private void grow() {
         if(growth >= 1) return;
-        // only grow with a surplus, so a starving creature doesn't spend its last energy on growing
         if(energy < maxEnergy * 0.5) return;
 
         double step = Math.min(1.0 / TICKS_TO_ADULT, 1 - growth);
-        // r^2 grows linearly with growth, so each step costs the same.
-        // birth to adult adds up to 0.6 * adultR^2 * (1 - b^2): same rate as building a child
         double b = genome.birthScale();
         energy -= 0.83 * genome.radius() * genome.radius() * (1 - b*b) * step;
         growth += step;
@@ -236,17 +233,23 @@ public class Creature extends Entity {
         maxEnergy = radius * radius;
     }
 
+    // for creatures that arrive from outside the world: start fully grown
+    public void makeAdult() {
+        growth = 1;
+        radius = genome.radius();
+        maxEnergy = radius * radius;
+        energy = maxEnergy / 4;
+    }
+
     private void reproduce(World world) {
         // only adults can breed
-        if(growth < 1) return;
+        if(growth < 0.9) return;
 
         Genome childGenome = genome.mutate(world.getRandom());
-        // children are born small, so they're cheap to make
         double childRadius = childGenome.atGrowth(0).radius();
         double childMaxEnergy = childRadius * childRadius;
-        double childEnergy = childMaxEnergy / 4;
-
-        double cost = childMaxEnergy * 1.25;
+        double childEnergy = childMaxEnergy * 0.75;
+        double cost = childMaxEnergy * (0.5 + 0.75) / 0.6;
 
         if(energy - cost < maxEnergy / 4) return;
         energy -= cost;
@@ -264,6 +267,7 @@ public class Creature extends Entity {
         child.energy = childEnergy;
         world.addEntity(child);
         childrenCount++;
+        if(genome.diet() > 0.65) world.carnivoreBred(this);
         world.getStats().births++;
     }
 

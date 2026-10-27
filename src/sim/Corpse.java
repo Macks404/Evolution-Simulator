@@ -11,7 +11,7 @@ public class Corpse extends Entity {
 
     @Override 
     protected void tick(World world) {
-        energy -= energy * 0.003;
+        energy -= energy * 0.00075;
         if(energy < 0.5) energy = 0;
     }
 }

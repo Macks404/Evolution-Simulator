@@ -59,7 +59,7 @@ public class Stats {
 
                 if(c.getGrowth() >= 1) adults++;
                 if(g.diet() < 1.0/3) herbivores++;
-                else if(g.diet() > 2.0/3) carnivores++;
+                else if(g.diet() > 0.65) carnivores++;
                 else omnivores++;
 
                 radius += c.getRadius();         // size right now

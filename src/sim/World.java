@@ -13,18 +13,18 @@ public class World {
     private long tick = 0;    
     private final Stats stats = new Stats("stats.csv", 1000);
 
-    // spawn rate of plants made through no reproduction in ticks
-    private int newPlantSpawnRate = 10;
-    private int plantCap = 5000;
+    private int newPlantSpawnRate = 5;
+    private int plantCap = 7500;
     private int plantCount = 0;
-
-    // spawn rate of new creature from premade genome pool
     private int newCreatureSpawnRate = 30;
     private int minCreatures = 100;
     private int creatureCount = 0;
+    private int carnivoreCount = 0;
+    private int minCarnivores = 20;
+    private Creature lastCarnivoreParent = null;
 
     private final Genome[] premadeGenomes = {
-        new Genome(6, 7, 0.05, 120, Math.toRadians(120), 1, 1, 0, 0.25, 0.3), //yellow herbivore
+        new Genome(8, 5, 0.05, 100, Math.toRadians(120), 1, 1, 0, 0.25, 0.3), //yellow herbivore
         new Genome(5, 5, 0.35, 120, Math.toRadians(120), 1, 1, 1, 0.25, 0.3), //white omnivore
         new Genome(10, 5, 0.65, 120, Math.toRadians(120), 0, 1, 1, 0.25, 0.3), //large cyan omnivore
         new Genome(5, 6, 0.95, 120, Math.toRadians(120), 1, 0, 1, 0.25, 0.3) //purple carnivore
@@ -36,10 +36,10 @@ public class World {
         plantCount = startingPlantCount;
         creatureCount = startingCreatureCount;
 
-        for(Genome genome : premadeGenomes) {
-            for(int i = 0; i < startingCreatureCount/premadeGenomes.length; i++) {
-                entities.add(new Creature(random.nextDouble()*width, random.nextDouble()*height, random.nextDouble()*2*Math.PI, genome.mutate(random), new Network(Creature.BRAIN_SIZES, random), new Network(Creature.ASSESSOR_SIZES, random)));
-            }
+        for(int i = 0; i < startingCreatureCount; i++) {
+            Creature c = new Creature(random.nextDouble()*width, random.nextDouble()*height, random.nextDouble()*2*Math.PI, premadeGenomes[0].mutate(random), new Network(Creature.BRAIN_SIZES, random), new Network(Creature.ASSESSOR_SIZES, random));
+            c.makeAdult();
+            entities.add(c);
         }
 
         for(int i = 0; i < startingPlantCount; i++) {
@@ -48,8 +48,11 @@ public class World {
     }
 
     public void tick() {
+        carnivoreCount = 0;
         for(Entity entity : entities) {
             entity.update(this);
+
+            if(entity instanceof Creature c && c.getActive() && c.getGenome().diet() > 0.65) carnivoreCount++;
         }
 
         if(tick%newPlantSpawnRate == 0) {
@@ -59,32 +62,45 @@ public class World {
         if(creatureCount < minCreatures) {
             Creature parent = randomCreature();
             int attempts = 0;
-            while(parent.childrenCount < 1 && attempts < 5) {
+            while(parent != null && parent.childrenCount < 1 && attempts < 5) {
                 parent = randomCreature();
                 attempts++;
             }
             double x = random.nextDouble()*width, y = random.nextDouble()*height, h = random.nextDouble()*2*Math.PI;
 
             if(parent != null && random.nextBoolean() && parent.childrenCount > 0) {
-                // 50%: a mutated copy of someone alive, so good genes stick around
                 double rate = parent.getGenome().mutationRate();
                 stats.immigrants++;
-                addEntity(new Creature(x, y, h, parent.getGenome().mutate(random),
-                        parent.getBrain().mutate(random, rate), parent.getAssessor().mutate(random, rate)));
+                Creature c = new Creature(x, y, h, parent.getGenome().mutate(random),
+                        parent.getBrain().mutate(random, rate), parent.getAssessor().mutate(random, rate));
+                c.makeAdult();
+                addEntity(c);
             } else {
-                // 50%: a fresh random one, for new ideas
                 stats.immigrants++;
-                addEntity(new Creature(x, y, h, premadeGenomes[random.nextInt(0,premadeGenomes.length)].mutate(random),
-                        new Network(Creature.BRAIN_SIZES, random), new Network(Creature.ASSESSOR_SIZES, random)));
+                Creature c = new Creature(x, y, h, premadeGenomes[0].mutate(random),
+                        new Network(Creature.BRAIN_SIZES, random), new Network(Creature.ASSESSOR_SIZES, random));
+                c.makeAdult();
+                addEntity(c);
             }
         }
-        else if(tick%newCreatureSpawnRate==0) {
+        else if(tick%newCreatureSpawnRate==0 && carnivoreCount < minCarnivores) {
             Creature c = randomCreature();
-            double x = c.getX(), y = c.getY(), h = random.nextDouble()*2*Math.PI;
-            Genome genome = premadeGenomes[random.nextInt(1,3)];
-            stats.immigrants++;
-            addEntity(new Creature(x, y, h, genome.mutate(random),
-                        new Network(Creature.BRAIN_SIZES, random), new Network(Creature.ASSESSOR_SIZES, random)));
+            if(c != null) {
+                double x = c.getX(), y = c.getY(), h = random.nextDouble()*2*Math.PI;
+                Creature carnivore;
+                if(lastCarnivoreParent != null && random.nextBoolean()) {
+                    Creature p = lastCarnivoreParent;
+                    double rate = p.getGenome().mutationRate();
+                    carnivore = new Creature(x, y, h, p.getGenome().mutate(random),
+                            p.getBrain().mutate(random, rate), p.getAssessor().mutate(random, rate));
+                } else {
+                    carnivore = new Creature(x, y, h, premadeGenomes[3].mutate(random),
+                            new Network(Creature.BRAIN_SIZES, random), new Network(Creature.ASSESSOR_SIZES, random));
+                }
+                carnivore.makeAdult();
+                stats.immigrants++;
+                addEntity(carnivore);
+            }
         }
 
         entities.removeIf(entity -> {
@@ -149,6 +165,10 @@ public class World {
 
     public List<Entity> getEntities() {
         return entities;
+    }
+
+    public void carnivoreBred(Creature c) {
+        lastCarnivoreParent = c;
     }
 
     private Creature randomCreature() {
